@@ -1,0 +1,84 @@
+# Commerce CMS
+
+A content management system for an eCommerce platform, with scoped role-based
+access control (RBAC). Built with Next.js (App Router) and Supabase
+(Postgres + Auth + Storage), following the eCommerce CMS + RBAC blueprint.
+
+## Stack
+
+- **Next.js 16** (App Router, Server Actions, TypeScript, Tailwind CSS)
+- **Supabase** — Postgres, Auth, Storage, and Row Level Security for
+  permission enforcement at the database layer
+
+## Features
+
+- **Content**: draft → review → publish workflow for pages, banners, landing
+  pages, blog posts and FAQs, with automatic version history and rollback
+- **Media library**: uploads to Supabase Storage with alt text
+- **Scoped RBAC**: roles (Super Admin, Content Admin, Editor, Merchandiser,
+  Reviewer, SEO Specialist, Viewer) that can be assigned globally or scoped
+  to a specific store and/or content type
+- **Users & Roles**: assign/revoke roles per user, per store, per content type
+- **Audit log**: every mutation is recorded with who/what/when
+- Permissions are enforced in two layers: Postgres RLS policies (via the
+  `has_permission()` SQL function) and the UI, which hides actions the
+  signed-in user isn't allowed to take
+
+## Database setup
+
+1. Create a [Supabase](https://supabase.com) project.
+2. In the SQL Editor, run the migrations in `supabase/migrations/` **in
+   order**:
+   - `0001_rbac.sql` — roles, permissions, scoped user_roles, `has_permission()`
+   - `0002_content.sql` — content types/entries/versions, media assets,
+     audit log, storage bucket
+   - `0003_profiles.sql` — adds `email` to `profiles` so the admin UI can
+     look users up and list them
+3. Bootstrap your own account as `super_admin`: sign up once through the app
+   (or Supabase Auth), then run the commented block at the bottom of
+   `0001_rbac.sql` with your email.
+
+All migrations are idempotent and safe to re-run.
+
+## App setup
+
+```bash
+cp .env.example .env.local
+# fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+# from your Supabase project's API settings
+
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). You'll be redirected to
+`/login`; sign in with a Supabase Auth user that has a role assigned.
+
+## Project layout
+
+```
+app/
+  login/                 sign in / sign out
+  (dashboard)/
+    dashboard/           overview + your permissions
+    content/             list, create, edit, publish, schedule, rollback
+    media/               upload, browse, edit alt text, delete
+    users/                assign/revoke scoped roles
+    audit/                audit log viewer
+lib/
+  supabase/              browser/server/middleware Supabase clients
+  session.ts             requireSession() — current user + permissions
+  permissions.ts         permission key list + can() helper
+  types.ts                shared DB row types
+supabase/migrations/      SQL schema, RLS policies, RBAC engine, seed data
+```
+
+## Extending
+
+- New content types: insert a row into `content_types`, add a permission
+  scope for it, and it shows up in the content type selector automatically.
+- New roles/permissions: edit the seed section of `0001_rbac.sql` and re-run
+  it (idempotent) or add rows directly via the `roles`/`permissions`/
+  `role_permissions` tables (requires `roles:manage`).
+- New scope dimensions (e.g. brand, channel): add a column to `user_roles`
+  and extend `has_permission()` accordingly.
