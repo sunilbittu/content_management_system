@@ -27,25 +27,38 @@ access control (RBAC). Built with Next.js (App Router) and Supabase
 ## Database setup
 
 1. Create a [Supabase](https://supabase.com) project.
-2. In the SQL Editor, run the migrations in `supabase/migrations/` **in
-   order**:
+2. Install the project dependencies with `npm install`.
+3. Copy the Postgres connection string from **Supabase Dashboard → Connect**
+   into `.env.local` as `SUPABASE_DB_URL`. Use the session or direct
+   connection string and percent-encode special characters in its password.
+4. Preview the pending migrations, then apply them:
+
+   ```bash
+   npm run db:migrate:dry-run
+   npm run db:migrate
+   ```
+
+   The job applies files in `supabase/migrations/` in order:
    - `0001_rbac.sql` — roles, permissions, scoped user_roles, `has_permission()`
    - `0002_content.sql` — content types/entries/versions, media assets,
      audit log, storage bucket
    - `0003_profiles.sql` — adds `email` to `profiles` so the admin UI can
      look users up and list them
-3. Bootstrap your own account as `super_admin`: sign up once through the app
+5. Bootstrap your own account as `super_admin`: sign up once through the app
    (or Supabase Auth), then run the commented block at the bottom of
    `0001_rbac.sql` with your email.
 
-All migrations are idempotent and safe to re-run.
+The Supabase CLI records applied versions in
+`supabase_migrations.schema_migrations`, so subsequent runs skip migrations
+that are already tracked. `npm run db:migrate:local` applies pending files to
+an already-running local Supabase database.
 
 ## App setup
 
 ```bash
 cp .env.example .env.local
-# fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
-# from your Supabase project's API settings
+# fill in NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+# and SUPABASE_DB_URL from your Supabase project settings
 
 npm install
 npm run dev
