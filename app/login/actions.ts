@@ -9,7 +9,11 @@ export async function login(
 ): Promise<{ error: string | null }> {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/dashboard");
+  const requestedNext = String(formData.get("next") ?? "/dashboard");
+  const next =
+    requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/dashboard";
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });

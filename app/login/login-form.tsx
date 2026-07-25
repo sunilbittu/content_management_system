@@ -7,49 +7,46 @@ export function LoginForm({ next }: { next: string }) {
   const [state, formAction, pending] = useActionState(login, { error: null });
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} className="flex flex-col gap-5">
       <input type="hidden" name="next" value={next} />
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="email" className="text-sm font-medium text-neutral-700">
-          Email
-        </label>
+      <div>
+        <label htmlFor="email" className="field-label">Email address</label>
         <input
           id="email"
           name="email"
           type="email"
           required
           autoComplete="email"
-          className="rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+          autoFocus
+          className="field"
           placeholder="you@company.com"
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="password" className="text-sm font-medium text-neutral-700">
-          Password
-        </label>
+      <div>
+        <label htmlFor="password" className="field-label">Password</label>
         <input
           id="password"
           name="password"
           type="password"
           required
           autoComplete="current-password"
-          className="rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+          className="field"
           placeholder="••••••••"
         />
       </div>
 
       {state.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
+        <p className="error-note" role="alert" aria-live="polite">{state.error}</p>
       )}
 
       <button
         type="submit"
         disabled={pending}
-        className="mt-2 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
+        className="button-primary mt-1 w-full"
       >
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? "Signing in…" : "Enter publishing desk"}
       </button>
     </form>
   );

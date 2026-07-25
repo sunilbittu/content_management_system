@@ -6,11 +6,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { user, permissions } = await requireSession();
 
   return (
-    <div className="flex min-h-screen bg-neutral-50">
+    <div className="flex min-h-screen bg-transparent">
       <Sidebar permissions={permissions} />
-      <div className="flex flex-1 flex-col">
-        <Topbar email={user.email} />
-        <main className="flex-1 p-6">{children}</main>
+      <div className="min-w-0 flex flex-1 flex-col">
+        <Topbar email={user.email} permissions={permissions} />
+        <main id="main-content" className="flex-1 px-4 py-7 sm:px-6 lg:px-9 lg:py-10">
+          <div className="mx-auto w-full max-w-[1440px]">{children}</div>
+        </main>
       </div>
     </div>
   );

@@ -32,6 +32,19 @@ export async function assignRole(
     return { error: `No user found with email "${email}". They need to sign up first.` };
   }
 
+  let existingQuery = supabase
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", profile.id)
+    .eq("role_id", roleId);
+  existingQuery = storeId
+    ? existingQuery.eq("store_id", storeId)
+    : existingQuery.is("store_id", null);
+  const { data: existing, error: existingError } = await existingQuery.limit(1).maybeSingle();
+
+  if (existingError) return { error: existingError.message };
+  if (existing) return { error: "This user already has that role for the selected storefront scope." };
+
   const { error } = await supabase.from("user_roles").insert({
     user_id: profile.id,
     role_id: roleId,

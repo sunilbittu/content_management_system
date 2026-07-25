@@ -1,7 +1,12 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { ContentForm } from "@/components/content-form";
+import { PageHeader } from "@/components/page-header";
+import { SchemaNotice } from "@/components/schema-notice";
+import { StatusLabel } from "@/components/status-label";
+import { ActionButton } from "@/components/action-button";
 import {
   updateContent,
   publishContent,
@@ -17,7 +22,7 @@ export default async function EditContentPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const { supabase, permissions } = await requireSession();
 
-  const [{ data: entry }, { data: contentTypes }, { data: stores }, { data: versions }] = await Promise.all([
+  const [entryResult, contentTypesResult, storesResult, versionsResult] = await Promise.all([
     supabase.from("content_entries").select("*").eq("id", id).maybeSingle<ContentEntry>(),
     supabase.from("content_types").select("*").order("name").returns<ContentType[]>(),
     supabase.from("stores").select("*").order("name").returns<Store[]>(),
@@ -29,8 +34,26 @@ export default async function EditContentPage({ params }: { params: Promise<{ id
       .returns<ContentVersion[]>(),
   ]);
 
+  const schemaUnavailable =
+    entryResult.error?.code === "PGRST205" || contentTypesResult.error?.code === "PGRST205";
+
+  if (schemaUnavailable) {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          title="Content editor"
+          description="Edit the working record and move it through the publishing workflow."
+          action={<Link href="/content" className="button-quiet">Back to content</Link>}
+        />
+        <SchemaNotice area="The content editor" />
+      </div>
+    );
+  }
+
+  const entry = entryResult.data;
   if (!entry) notFound();
 
+  const versions = versionsResult.data ?? [];
   const canUpdate = can(permissions, "content:update");
   const canPublish = can(permissions, "content:publish");
   const canSchedule = can(permissions, "content:schedule");
@@ -44,116 +67,158 @@ export default async function EditContentPage({ params }: { params: Promise<{ id
   const submitForReviewWithId = submitForReview.bind(null, entry.id);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">{entry.title}</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            {entry.content_type} · status: <span className="font-medium">{entry.status}</span>
-          </p>
-        </div>
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        title={entry.title}
+        description={`${entry.content_type.replaceAll("_", " ")} · /${entry.slug}`}
+        action={<Link href="/content" className="button-quiet">Back to content</Link>}
+      />
+
+      <div className="flex items-center gap-3">
+        <StatusLabel status={entry.status} />
+        {entry.store_id ? (
+          <span className="text-xs text-[var(--ink-faint)]">Scoped storefront content</span>
+        ) : (
+          <span className="text-xs text-[var(--ink-faint)]">Global content</span>
+        )}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 rounded-lg border border-neutral-200 bg-white p-6">
+      <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="surface p-5 sm:p-8">
           {canUpdate ? (
-            <ContentForm action={updateContent} contentTypes={contentTypes ?? []} stores={stores ?? []} entry={entry} canEditType={false} />
+            <ContentForm
+              action={updateContent}
+              contentTypes={contentTypesResult.data ?? []}
+              stores={storesResult.data ?? []}
+              entry={entry}
+              canEditType={false}
+            />
           ) : (
-            <p className="text-sm text-neutral-500">You have read-only access to this content.</p>
+            <div className="py-12 text-center">
+              <p className="font-semibold text-[var(--ink)]">Read-only access</p>
+              <p className="mt-2 text-sm text-[var(--ink-faint)]">
+                Your role can view this record but cannot change it.
+              </p>
+            </div>
           )}
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-4">
-          <div className="rounded-lg border border-neutral-200 bg-white p-4">
-            <h2 className="text-sm font-medium text-neutral-900">Publishing</h2>
-            <div className="mt-3 flex flex-col gap-2">
-              {entry.status === "draft" && canUpdate && (
+        <aside className="flex flex-col gap-6">
+          <section className="surface p-5" aria-labelledby="publishing-heading">
+            <h2 id="publishing-heading" className="text-sm font-bold text-[var(--ink)]">Publishing</h2>
+            <div className="mt-5 flex flex-col gap-3">
+              {entry.status === "draft" && canUpdate ? (
                 <form action={submitForReviewWithId}>
-                  <button className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
+                  <ActionButton pendingLabel="Submitting" className="button-secondary w-full">
                     Submit for review
-                  </button>
+                  </ActionButton>
                 </form>
-              )}
+              ) : null}
 
-              {canPublish && entry.status !== "published" && (
+              {canPublish && entry.status !== "published" ? (
                 <form action={publishContentWithId}>
-                  <button className="w-full rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700">
+                  <ActionButton
+                    pendingLabel="Publishing"
+                    className="button-primary w-full"
+                    confirmMessage="Publish this content to the storefront now?"
+                  >
                     Publish now
-                  </button>
+                  </ActionButton>
                 </form>
-              )}
+              ) : null}
 
-              {canUnpublish && entry.status === "published" && (
+              {canUnpublish && entry.status === "published" ? (
                 <form action={unpublishContentWithId}>
-                  <button className="w-full rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
+                  <ActionButton
+                    pendingLabel="Unpublishing"
+                    className="button-danger w-full"
+                    confirmMessage="Remove this content from the storefront?"
+                  >
                     Unpublish
-                  </button>
+                  </ActionButton>
                 </form>
-              )}
+              ) : null}
 
-              {canSchedule && entry.status !== "published" && (
-                <form action={scheduleContentWithId} className="flex flex-col gap-2 border-t border-neutral-100 pt-2">
-                  <label className="text-xs font-medium text-neutral-600">Schedule publish</label>
+              {canSchedule && entry.status !== "published" ? (
+                <form action={scheduleContentWithId} className="mt-2 rounded-[7px] bg-[#edf0e5] p-4">
+                  <label htmlFor="publish-at" className="field-label">Schedule publish</label>
                   <input
+                    id="publish-at"
                     type="datetime-local"
                     name="publish_at"
                     required
-                    className="rounded-md border border-neutral-300 px-2 py-1 text-sm"
+                    className="field text-sm"
                   />
-                  <button className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
-                    Schedule
-                  </button>
+                  <ActionButton pendingLabel="Scheduling" className="button-secondary mt-3 w-full">
+                    Set schedule
+                  </ActionButton>
                 </form>
-              )}
+              ) : null}
 
-              {entry.publish_at && entry.status === "scheduled" && (
-                <p className="text-xs text-neutral-500">
+              {entry.publish_at && entry.status === "scheduled" ? (
+                <p className="text-xs leading-5 text-[var(--ink-faint)]">
                   Scheduled for {new Date(entry.publish_at).toLocaleString()}
                 </p>
-              )}
-              {entry.published_at && (
-                <p className="text-xs text-neutral-500">
+              ) : null}
+              {entry.published_at ? (
+                <p className="text-xs leading-5 text-[var(--ink-faint)]">
                   Published {new Date(entry.published_at).toLocaleString()}
                 </p>
-              )}
+              ) : null}
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-lg border border-neutral-200 bg-white p-4">
-            <h2 className="text-sm font-medium text-neutral-900">Version history</h2>
-            <ul className="mt-3 flex flex-col gap-2">
-              {(versions ?? []).map((v) => (
-                <li key={v.id} className="flex items-center justify-between text-sm">
-                  <span className="text-neutral-600">
-                    v{v.version_number} · {new Date(v.created_at).toLocaleDateString()}
-                  </span>
-                  {canRollback && v.version_number !== versions![0].version_number && (
+          <section className="surface p-5" aria-labelledby="history-heading">
+            <h2 id="history-heading" className="text-sm font-bold text-[var(--ink)]">Version history</h2>
+            <ul className="mt-5 space-y-4">
+              {versions.map((version, index) => (
+                <li key={version.id} className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="data-type text-xs text-[var(--ink)]">Version {version.version_number}</p>
+                    <p className="mt-1 text-xs text-[var(--ink-faint)]">
+                      {new Date(version.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {canRollback && index !== 0 ? (
                     <form action={rollbackContent}>
                       <input type="hidden" name="id" value={entry.id} />
-                      <input type="hidden" name="version_id" value={v.id} />
-                      <button className="text-xs font-medium text-neutral-500 underline hover:text-neutral-900">
+                      <input type="hidden" name="version_id" value={version.id} />
+                      <ActionButton
+                        pendingLabel="Restoring"
+                        className="button-quiet"
+                        confirmMessage={`Restore version ${version.version_number}?`}
+                      >
                         Restore
-                      </button>
+                      </ActionButton>
                     </form>
-                  )}
+                  ) : null}
                 </li>
               ))}
-              {(versions ?? []).length === 0 && <li className="text-sm text-neutral-400">No versions yet.</li>}
+              {versions.length === 0 ? (
+                <li className="text-sm text-[var(--ink-faint)]">No saved versions yet.</li>
+              ) : null}
             </ul>
-          </div>
+          </section>
 
-          {canDelete && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <h2 className="text-sm font-medium text-red-800">Danger zone</h2>
-              <form action={deleteContent} className="mt-3">
+          {canDelete ? (
+            <section className="rounded-[8px] bg-[var(--rust-soft)] p-5" aria-labelledby="danger-heading">
+              <h2 id="danger-heading" className="text-sm font-bold text-[#72372e]">Delete record</h2>
+              <p className="mt-2 text-xs leading-5 text-[#7b4b43]">
+                This permanently removes the content and its history.
+              </p>
+              <form action={deleteContent} className="mt-4">
                 <input type="hidden" name="id" value={entry.id} />
-                <button className="w-full rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100">
+                <ActionButton
+                  pendingLabel="Deleting"
+                  className="button-danger w-full"
+                  confirmMessage="Permanently delete this content and its history?"
+                >
                   Delete permanently
-                </button>
+                </ActionButton>
               </form>
-            </div>
-          )}
-        </div>
+            </section>
+          ) : null}
+        </aside>
       </div>
     </div>
   );

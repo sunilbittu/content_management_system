@@ -21,18 +21,19 @@ export function ContentForm({
   const [state, formAction, pending] = useActionState(action, { error: null });
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form action={formAction} className="flex flex-col gap-7">
       {entry && <input type="hidden" name="id" value={entry.id} />}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-neutral-700">Content type</label>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label htmlFor="content-type" className="field-label">Content type</label>
           <select
+            id="content-type"
             name="content_type"
             defaultValue={entry?.content_type ?? contentTypes[0]?.key}
             disabled={!canEditType}
             required
-            className="rounded-md border border-neutral-300 px-3 py-2 text-sm disabled:bg-neutral-100"
+            className="field"
           >
             {contentTypes.map((ct) => (
               <option key={ct.key} value={ct.key}>
@@ -42,15 +43,16 @@ export function ContentForm({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-neutral-700">Store</label>
+        <div>
+          <label htmlFor="store-id" className="field-label">Storefront</label>
           <select
+            id="store-id"
             name="store_id"
             disabled={!canEditType}
             defaultValue={entry?.store_id ?? ""}
-            className="rounded-md border border-neutral-300 px-3 py-2 text-sm disabled:bg-neutral-100"
+            className="field"
           >
-            <option value="">All stores (global)</option>
+            <option value="">All storefronts (global)</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -60,70 +62,79 @@ export function ContentForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-neutral-700">Title</label>
+      <div>
+        <label htmlFor="title" className="field-label">Title</label>
         <input
+          id="title"
           name="title"
           required
           defaultValue={entry?.title}
-          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+          className="field"
+          placeholder="Homepage spring campaign"
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-neutral-700">Slug</label>
+      <div>
+        <label htmlFor="slug" className="field-label">URL slug</label>
         <input
+          id="slug"
           name="slug"
           required
           pattern="[a-z0-9-]+"
           title="lowercase letters, numbers and hyphens only"
           defaultValue={entry?.slug}
-          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+          className="field data-type text-sm"
+          placeholder="homepage-spring-campaign"
         />
+        <p className="field-hint">Lowercase letters, numbers, and hyphens only.</p>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-neutral-700">
-          Content blocks / fields <span className="font-normal text-neutral-400">(JSON)</span>
+      <div>
+        <label htmlFor="fields-json" className="field-label">
+          Content fields <span className="font-normal text-[var(--ink-faint)]">(JSON)</span>
         </label>
         <textarea
+          id="fields-json"
           name="fields_json"
-          rows={8}
+          rows={10}
           defaultValue={JSON.stringify(entry?.fields ?? {}, null, 2)}
           spellCheck={false}
-          className="rounded-md border border-neutral-300 px-3 py-2 font-mono text-xs"
+          className="field data-type resize-y text-xs leading-5"
         />
+        <p className="field-hint">Valid JSON is required. Invalid fields are never discarded silently.</p>
       </div>
 
-      <fieldset className="rounded-md border border-neutral-200 p-4">
-        <legend className="px-1 text-sm font-medium text-neutral-700">SEO</legend>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-neutral-600">Meta title</label>
+      <fieldset className="rounded-[7px] bg-[#edf0e5] p-5">
+        <legend className="px-1 text-sm font-bold text-[var(--ink)]">Search preview</legend>
+        <div className="mt-1 flex flex-col gap-5">
+          <div>
+            <label htmlFor="seo-title" className="field-label">Meta title</label>
             <input
+              id="seo-title"
               name="seo_title"
               defaultValue={(entry?.seo?.title as string) ?? ""}
-              className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+              className="field"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-neutral-600">Meta description</label>
+          <div>
+            <label htmlFor="seo-description" className="field-label">Meta description</label>
             <textarea
+              id="seo-description"
               name="seo_description"
               rows={2}
               defaultValue={(entry?.seo?.description as string) ?? ""}
-              className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+              className="field resize-y"
             />
           </div>
         </div>
       </fieldset>
 
-      {state.error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
+      {state.error && <p className="error-note" role="alert" aria-live="polite">{state.error}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
+        className="button-primary w-fit"
       >
         {pending ? "Saving…" : entry ? "Save changes" : "Create draft"}
       </button>

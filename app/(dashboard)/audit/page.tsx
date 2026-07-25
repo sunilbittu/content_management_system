@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/session";
 import { can } from "@/lib/permissions";
+import { PageHeader } from "@/components/page-header";
+import { SchemaNotice } from "@/components/schema-notice";
 import type { AuditLog } from "@/lib/types";
 
 interface Profile {
@@ -16,7 +18,7 @@ export default async function AuditLogPage() {
     redirect("/dashboard");
   }
 
-  const [{ data: logs }, { data: profiles }] = await Promise.all([
+  const [logsResult, profilesResult] = await Promise.all([
     supabase
       .from("audit_logs")
       .select("*")
@@ -26,60 +28,102 @@ export default async function AuditLogPage() {
     supabase.from("profiles").select("id, full_name, email").returns<Profile[]>(),
   ]);
 
-  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const schemaUnavailable =
+    logsResult.error?.code === "PGRST205" || profilesResult.error?.code === "42703";
+  const logs = logsResult.data ?? [];
+  const profileById = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-neutral-900">Audit Log</h1>
-        <p className="mt-1 text-sm text-neutral-500">Who changed what, and when. Most recent 200 events.</p>
-      </div>
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        title="Audit trail"
+        description="A durable record of who changed what and when, newest events first."
+      />
 
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-neutral-200 bg-neutral-50 text-neutral-500">
-            <tr>
-              <th className="px-4 py-2 font-medium">When</th>
-              <th className="px-4 py-2 font-medium">User</th>
-              <th className="px-4 py-2 font-medium">Action</th>
-              <th className="px-4 py-2 font-medium">Resource</th>
-              <th className="px-4 py-2 font-medium">Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(logs ?? []).map((log) => {
-              const profile = log.user_id ? profileById.get(log.user_id) : undefined;
-              return (
-                <tr key={log.id} className="border-b border-neutral-100 last:border-0">
-                  <td className="whitespace-nowrap px-4 py-2 text-neutral-500">
-                    {new Date(log.created_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2 text-neutral-700">{profile?.email ?? profile?.full_name ?? "—"}</td>
-                  <td className="px-4 py-2">
-                    <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium">
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-neutral-500">
-                    {log.resource_type}
-                    {log.resource_id ? ` · ${log.resource_id.slice(0, 8)}` : ""}
-                  </td>
-                  <td className="max-w-xs truncate px-4 py-2 text-xs text-neutral-400">
-                    {JSON.stringify(log.metadata)}
+      {schemaUnavailable ? (
+        <SchemaNotice
+          area="The audit trail"
+          detail="Audit events and user email attribution are not available until the remaining migrations run."
+        />
+      ) : (
+        <div className="table-shell">
+          <table className="data-table min-w-[920px]">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Resource</th>
+                <th>Context</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => {
+                const profile = log.user_id ? profileById.get(log.user_id) : undefined;
+                const hasMetadata = log.metadata && Object.keys(log.metadata).length > 0;
+
+                return (
+                  <tr key={log.id}>
+                    <td className="data-type whitespace-nowrap text-xs text-[var(--ink-faint)]">
+                      {new Intl.DateTimeFormat("en", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(log.created_at))}
+                    </td>
+                    <td>
+                      <p className="text-sm font-semibold text-[var(--ink)]">
+                        {profile?.full_name || profile?.email?.split("@")[0] || "System"}
+                      </p>
+                      {profile?.email ? (
+                        <p className="mt-1 text-xs text-[var(--ink-faint)]">{profile.email}</p>
+                      ) : null}
+                    </td>
+                    <td>
+                      <code className="data-type text-xs font-semibold text-[var(--moss)]">
+                        {log.action}
+                      </code>
+                    </td>
+                    <td>
+                      <p className="text-sm capitalize text-[var(--ink-soft)]">
+                        {log.resource_type.replaceAll("_", " ")}
+                      </p>
+                      {log.resource_id ? (
+                        <p className="data-type mt-1 text-[10px] text-[var(--ink-faint)]">
+                          {log.resource_id.slice(0, 8)}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td>
+                      {hasMetadata ? (
+                        <details>
+                          <summary className="cursor-pointer text-xs font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                            View details
+                          </summary>
+                          <pre className="data-type mt-3 max-w-md whitespace-pre-wrap break-words rounded-[5px] bg-[#e9eddf] p-3 text-[10px] leading-5 text-[var(--ink-soft)]">
+                            {JSON.stringify(log.metadata, null, 2)}
+                          </pre>
+                        </details>
+                      ) : (
+                        <span className="text-xs text-[var(--ink-faint)]">No extra context</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-16 text-center">
+                    <p className="font-semibold text-[var(--ink)]">No activity recorded yet.</p>
+                    <p className="mt-2 text-sm text-[var(--ink-faint)]">
+                      Publishing and access changes will appear here.
+                    </p>
                   </td>
                 </tr>
-              );
-            })}
-            {(logs ?? []).length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-neutral-400">
-                  No activity yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

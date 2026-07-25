@@ -16,25 +16,30 @@ export function AssignRoleForm({
   const [state, formAction, pending] = useActionState(assignRole, { error: null });
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 rounded-lg border border-neutral-200 bg-white p-4">
-      <h2 className="text-sm font-medium text-neutral-900">Assign a role</h2>
+    <form action={formAction} className="surface p-5 sm:p-7">
+      <div>
+        <div>
+          <h2 className="text-base font-bold text-[var(--ink)]">Assign access</h2>
+          <p className="mt-1 text-sm text-[var(--ink-faint)]">The user must already have an account.</p>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-neutral-600">User email</label>
+      <div className="mt-6 grid gap-5 md:grid-cols-2">
+        <div>
+          <label htmlFor="role-email" className="field-label">User email</label>
           <input
+            id="role-email"
             name="email"
             type="email"
             required
             placeholder="person@company.com"
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
+            className="field"
           />
-          <p className="text-xs text-neutral-400">They must have already signed up.</p>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-neutral-600">Role</label>
-          <select name="role_id" required className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm">
+        <div>
+          <label htmlFor="role-id" className="field-label">Role</label>
+          <select id="role-id" name="role_id" required className="field">
             {roles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -43,10 +48,10 @@ export function AssignRoleForm({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-neutral-600">Store scope</label>
-          <select name="store_id" className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm">
-            <option value="">All stores</option>
+        <div>
+          <label htmlFor="role-store" className="field-label">Storefront scope</label>
+          <select id="role-store" name="store_id" className="field">
+            <option value="">All storefronts</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -55,12 +60,14 @@ export function AssignRoleForm({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-neutral-600">Content type scope</label>
+        <div>
+          <label htmlFor="role-content-types" className="field-label">Content type scope</label>
           <select
+            id="role-content-types"
             name="content_types"
             multiple
-            className="h-20 rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
+            className="field min-h-28 py-2"
+            aria-describedby="content-type-scope-hint"
           >
             {contentTypes.map((ct) => (
               <option key={ct.key} value={ct.key}>
@@ -68,16 +75,18 @@ export function AssignRoleForm({
               </option>
             ))}
           </select>
-          <p className="text-xs text-neutral-400">Leave empty for all types.</p>
+          <p id="content-type-scope-hint" className="field-hint">
+            Leave empty for all types. Hold Command or Control to select more than one.
+          </p>
         </div>
       </div>
 
-      {state.error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
+      {state.error && <p className="error-note mt-5" role="alert" aria-live="polite">{state.error}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
+        className="button-primary mt-6"
       >
         {pending ? "Assigning…" : "Assign role"}
       </button>

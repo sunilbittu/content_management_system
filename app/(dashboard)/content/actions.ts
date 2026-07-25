@@ -8,9 +8,13 @@ import { logAudit } from "@/lib/audit";
 function fieldsFromForm(formData: FormData) {
   const raw = String(formData.get("fields_json") ?? "{}");
   try {
-    return JSON.parse(raw || "{}");
+    const value: unknown = JSON.parse(raw || "{}");
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return { value: null, error: "Content fields must be a JSON object." };
+    }
+    return { value: value as Record<string, unknown>, error: null };
   } catch {
-    return {};
+    return { value: null, error: "Content fields contain invalid JSON. Check commas, quotes, and brackets." };
   }
 }
 
@@ -35,6 +39,11 @@ export async function createContent(
   const store_id = String(formData.get("store_id") || "") || null;
   const title = String(formData.get("title"));
   const slug = String(formData.get("slug"));
+  const fields = fieldsFromForm(formData);
+
+  if (fields.error) {
+    return { error: fields.error };
+  }
 
   const { data, error } = await supabase
     .from("content_entries")
@@ -43,7 +52,7 @@ export async function createContent(
       store_id,
       title,
       slug,
-      fields: fieldsFromForm(formData),
+      fields: fields.value,
       seo: seoFromForm(formData),
       created_by: user.id,
       updated_by: user.id,
@@ -74,13 +83,18 @@ export async function updateContent(
   const id = String(formData.get("id"));
   const title = String(formData.get("title"));
   const slug = String(formData.get("slug"));
+  const fields = fieldsFromForm(formData);
+
+  if (fields.error) {
+    return { error: fields.error };
+  }
 
   const { error } = await supabase
     .from("content_entries")
     .update({
       title,
       slug,
-      fields: fieldsFromForm(formData),
+      fields: fields.value,
       seo: seoFromForm(formData),
       updated_by: user.id,
     })
