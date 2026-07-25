@@ -54,6 +54,25 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). You'll be redirected to
 `/login`; sign in with a Supabase Auth user that has a role assigned.
 
+## Deploying to Vercel
+
+This is a stock Next.js App Router project (Server Actions, no static
+export), so it deploys to Vercel with zero extra config:
+
+1. [Import the repo](https://vercel.com/new) — Vercel auto-detects Next.js
+   and sets the build/output settings.
+2. In the project's **Settings → Environment Variables**, add:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. Deploy. Run the database setup above against your Supabase project
+   first (or beforehand) so the app has roles/permissions/content tables
+   to talk to.
+
+Since these are `NEXT_PUBLIC_*` variables (safe to expose to the browser —
+access control is enforced by Postgres RLS, not by hiding the anon key),
+you don't need separate values per environment unless you want preview
+deployments to point at a different Supabase project.
+
 ## Project layout
 
 ```
